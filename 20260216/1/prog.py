@@ -2,8 +2,6 @@
 import sys
 import zlib
 from pathlib import Path
- 
-SHIFT = "  "
 
 def get_branches(repo):
     heads_dir = repo / "refs" / "heads"
@@ -45,8 +43,8 @@ def main():
         header, _, body = zlib.decompress(obj_path.read_bytes()).partition(b'\x00')
         kind, size = header.split()
 
-        out = body.decode().replace('\n', '\n' + SHIFT)
-        print(f"{SHIFT}{out}")
+        out = body.decode()
+        print(out)
         
 
 if __name__ == "__main__":
