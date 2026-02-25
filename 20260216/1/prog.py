@@ -5,8 +5,8 @@ from pathlib import Path
  
 SHIFT = "  "
 
-def get_branches(repo_path):
-    heads_dir = repo_path / "refs" / "heads"
+def get_branches(repo):
+    heads_dir = repo / "refs" / "heads"
     branches = []
     
     if heads_dir.exists():
@@ -31,6 +31,23 @@ def main():
         branches = get_branches(repo)
         for branch in branches:
             print(branch)
+
+    elif len(sys.argv) == 3:
+        branch_name = sys.argv[2]
+        branch_file = repo / "refs" / "heads" / branch_name
+
+        if not branch_file.exists():
+            print(f"error: branch {branch_name} not found")
+            return
+
+        commit_hash = branch_file.read_bytes().decode().strip()
+        obj_path = repo / "objects" / commit_hash[:2] / commit_hash[2:]
+        header, _, body = zlib.decompress(obj_path.read_bytes()).partition(b'\x00')
+        kind, size = header.split()
+
+        out = body.decode().replace('\n', '\n' + SHIFT)
+        print(f"{SHIFT}{out}")
+        
 
 if __name__ == "__main__":
     main()
