@@ -14,6 +14,33 @@ def get_branches(repo):
     
     return branches
 
+def print_tree(tree_body):
+    while tree_body:
+        treeobj, _, tree_body = tree_body.partition(b'\x00')
+        tmode, tname = treeobj.split()
+        num, tree_body = tree_body[:20], tree_body[20:]
+        mode_str = tmode.decode()
+        if mode_str.startswith('04') or mode_str == '40000':
+            obj_type = 'tree'
+        else:
+            obj_type = 'blob'
+        print(f"{obj_type} {num.hex()}    {tname.decode()}")
+
+def get_obj(repo, hash):
+    obj_path = repo / "objects" / hash[:2] / hash[2:]
+    header, _, body = zlib.decompress(obj_path.read_bytes()).partition(b'\x00')
+    kind, size = header.split()
+    return kind, body
+
+def get_some_hash_from_commit(commit_body, some):
+    some += ' '
+    lines = commit_body.decode().split('\n')
+    for line in lines:
+        if line.startswith(some):
+            return line[len(some):].strip()
+    return None
+            
+
 def main():
     if len(sys.argv) < 2:
         print("use: <git path> [branch]")
@@ -39,34 +66,21 @@ def main():
             return
 
         commit_hash = branch_file.read_bytes().decode().strip()
-        obj_path = repo / "objects" / commit_hash[:2] / commit_hash[2:]
-        header, _, body = zlib.decompress(obj_path.read_bytes()).partition(b'\x00')
+        
+        while commit_hash:
+            kind, com_body = get_obj(repo, commit_hash)
 
-        lines = body.decode().split('\n')
-
-        tree_hash = ''
-        for line in lines:
-            if line.startswith('tree '):
-                tree_hash = line[5:].strip()
+            if kind != b'commit':
                 break
 
-        obj_path = repo / "objects" / tree_hash[:2] / tree_hash[2:]
-        header, _, tree_body = zlib.decompress(obj_path.read_bytes()).partition(b'\x00')
+            print(f"TREE for commit {commit_hash}")
+        
+            tree_hash = get_some_hash_from_commit(com_body, some='tree')
 
-        while tree_body:
-            treeobj, _, tree_body = tree_body.partition(b'\x00')
-            tmode, tname = treeobj.split()
-            num, tree_body = tree_body[:20], tree_body[20:]
-            mode_str = tmode.decode()
-            if mode_str.startswith('04') or mode_str == '40000':
-                obj_type = 'tree'
-            else:
-                obj_type = 'blob'
-            print(f"{obj_type} {num.hex()}    {tname.decode()}")
-
-        
-        
-        
+            kind, tree_body = get_obj(repo, tree_hash)
+            print_tree(tree_body)
+            
+            commit_hash = get_some_hash_from_commit(com_body, some='parent')
 
 if __name__ == "__main__":
     main()
