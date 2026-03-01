@@ -74,7 +74,7 @@ def encounter(x, y):
     pos = Position(x, y)
     for monster in monsters:
         if monster.pos == pos:
-            print(cowsay(monster.phrase))
+            print(cowsay(monster.phrase, cow=monster.name))
 
 def get_and_make_command():
     try:
