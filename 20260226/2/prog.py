@@ -1,4 +1,4 @@
-from cowsay import cowsay
+from cowsay import cowsay, list_cows
 
 class Position:
     def __init__(self, x: int, y: int):
@@ -41,8 +41,9 @@ class Position:
         yield self.y
 
 class Monster:
-    def __init__(self, pos: Position, phrase: str):
+    def __init__(self, pos: Position, name: str, phrase: str):
         self.pos = pos
+        self.name = name
         self.phrase = phrase
 
 commands = ["up", "down", "left", "right", "addmon"]
@@ -73,7 +74,7 @@ def encounter(x, y):
     pos = Position(x, y)
     for monster in monsters:
         if monster.pos == pos:
-            print(cowsay(monster.phrase))
+            print(cowsay(monster.phrase, cow=monster.name))
 
 def get_and_make_command():
     try:
@@ -93,35 +94,40 @@ def get_and_make_command():
         move(command[0])
         return
     
-    if len(command) != 4:
+    if len(command) != 5:
         print("Invalid arguments")
         return
     
-    if not command[1].isdigit() or not command[2].isdigit():
+    if not command[2].isdigit() or not command[3].isdigit():
         print("Invalid arguments")
         return
     
-    x = int(command[1])
-    y = int(command[2])
+    x = int(command[2])
+    y = int(command[3])
 
     if x > 9 or y > 9:
         print("Invalid arguments")
         return
 
-    phrase = command[3]
+    name = command[1]
+    if name not in list_cows():
+        print("Cannot add unknown monster")
+        return
+    
+    phrase = command[4]
     new_pos = Position(x, y)
 
-    print(f"Added monster to {new_pos} saying {phrase}")
+    print(f"Added monster {name} to {new_pos} saying {phrase}")
 
     monster_replaced = False
     for i, monster in enumerate(monsters):
         if monster.pos == new_pos:
-            monsters[i] = Monster(new_pos, phrase)
+            monsters[i] = Monster(new_pos, name, phrase)
             monster_replaced = True
             break
     
     if not monster_replaced:
-        monsters.append(Monster(new_pos, phrase))
+        monsters.append(Monster(new_pos, name, phrase))
     else:
         print("Replaced the old monster")
     
