@@ -1,4 +1,5 @@
 from cowsay import cowsay, list_cows
+from shlex import split
 
 class Position:
     def __init__(self, x: int, y: int):
@@ -41,10 +42,11 @@ class Position:
         yield self.y
 
 class Monster:
-    def __init__(self, pos: Position, name: str, phrase: str):
+    def __init__(self, pos: Position, name: str, phrase: str, hp: int):
         self.pos = pos
         self.name = name
         self.phrase = phrase
+        self.hp = hp
 
 commands = ["up", "down", "left", "right", "addmon"]
 player = Position(0, 0)
@@ -85,54 +87,75 @@ def get_and_make_command():
     if not command_line.strip():
         return
 
-    command = command_line.split()
-    if command[0] not in commands:
+    command, *args = split(command_line)
+    if command not in commands:
         print("Invalid command")
         return
     
-    if command[0] != "addmon":
-        move(command[0])
+    if command != "addmon":
+        move(command)
         return
     
-    if len(command) != 5:
-        print("Invalid arguments")
-        return
-    
-    if not command[2].isdigit() or not command[3].isdigit():
-        print("Invalid arguments")
-        return
-    
-    x = int(command[2])
-    y = int(command[3])
-
-    if x > 9 or y > 9:
+    if len(args) != 8:
         print("Invalid arguments")
         return
 
-    name = command[1]
-    if name not in list_cows():
-        print("Cannot add unknown monster")
-        return
-    
-    phrase = command[4]
-    new_pos = Position(x, y)
+    name = args[0]
+    hp = 0
+    phrase = ''
+    new_pos = Position(0, 0)
 
+    idx = 1
+    while idx < len(args):
+        if args[idx] == "hello":
+            if idx + 1 >= len(args):
+                print("Invalid arguments")
+                return
+            idx += 1
+            phrase = args[idx]
+
+        elif args[idx] == "hp":
+            if idx + 1 >= len(args):
+                print("Invalid arguments")
+                return
+            idx += 1
+            hp = int(args[idx])
+            if hp < 0:
+                print("Invalid arguments")
+                return
+        
+        elif args[idx] == "coords":
+            if idx + 2 >= len(args):
+                print("Invalid arguments")
+                return
+            idx += 2
+            x, y = int(args[idx - 1]), int(args[idx])
+            if x < 0 or x > 9 or y < 0 or y > 9:
+                print("Invalid arguments")
+                return
+            new_pos = Position(x, y)
+        else:
+            print("Invalid arguments")
+            return
+        idx += 1
+    
     print(f"Added monster {name} to {new_pos} saying {phrase}")
 
     monster_replaced = False
     for i, monster in enumerate(monsters):
         if monster.pos == new_pos:
-            monsters[i] = Monster(new_pos, name, phrase)
+            monsters[i] = Monster(new_pos, name, phrase, hp)
             monster_replaced = True
             break
     
     if not monster_replaced:
-        monsters.append(Monster(new_pos, name, phrase))
+        monsters.append(Monster(new_pos, name, phrase, hp))
     else:
         print("Replaced the old monster")
     
 def main():
     print("<<< Welcome to Python-MUD 0.1 >>>")
+
     while True:
         get_and_make_command()
     
