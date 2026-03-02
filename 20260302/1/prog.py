@@ -154,6 +154,7 @@ def get_and_make_command():
         print("Replaced the old monster")
     
 def main():
+    print("<<< Welcome to Python-MUD 0.1 >>>")
     
     while True:
         get_and_make_command()
