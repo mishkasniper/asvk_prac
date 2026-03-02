@@ -1,5 +1,7 @@
-from cowsay import cowsay, list_cows
 from shlex import split
+from cowsay import cowsay, list_cows, read_dot_cow
+from io import StringIO
+
 
 class Position:
     def __init__(self, x: int, y: int):
@@ -52,6 +54,27 @@ commands = ["up", "down", "left", "right", "addmon"]
 player = Position(0, 0)
 monsters = []
 
+jgsbat = read_dot_cow(StringIO("""
+$the_cow = <<EOC;
+         $thoughts
+          $thoughts
+    ,_                    _,
+    ) '-._  ,_    _,  _.-' (
+    )  _.-'.|\\\\\\\\--//|.'-._  (
+     )'   .'\/o\/o\/'.   `(
+      ) .' . \====/ . '. (
+       )  / <<    >> \  (
+        '-._/``  ``\_.-'
+  jgs     __\\\\\\\\'--'//__
+         (((""`  `"")))
+EOC
+"""))
+
+def check_name(name: str) -> bool:
+    if name == "jgsbat" or name in list_cows():
+        return True
+    return False
+
 def move(direction: str) -> None:
     global player
 
@@ -76,7 +99,10 @@ def encounter(x, y):
     pos = Position(x, y)
     for monster in monsters:
         if monster.pos == pos:
-            print(cowsay(monster.phrase, cow=monster.name))
+            if monster.name == "jgsbat":
+                print(cowsay(monster.phrase, cowfile=jgsbat))
+            else:
+                print(cowsay(monster.phrase, cow=monster.name))
 
 def get_and_make_command():
     try:
@@ -104,6 +130,12 @@ def get_and_make_command():
     hp = 0
     phrase = ''
     new_pos = Position(0, 0)
+
+    real_name = check_name(name)
+    if not real_name:
+        print("Cannot add unknown monster")
+        return
+
 
     idx = 1
     while idx < len(args):
