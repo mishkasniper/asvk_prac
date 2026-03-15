@@ -205,7 +205,7 @@ class MUDcmd(cmd.Cmd):
             print("Replaced the old monster")
 
     def complete_addmon(self, text, line, begidx, endidx):
-        """Автодополнение для команды addmon"""
+        """complete command addmon"""
         args = line[:endidx].split()
         
         if len(args) <= 2:
@@ -224,9 +224,25 @@ class MUDcmd(cmd.Cmd):
         return []
     
     def do_attack(self, arg):
+        if not arg:
+            print("Invalid arguments")
+            return
+
+        try:
+            args = split(arg)
+        except ValueError:
+            print("Invalid arguments")
+            return
+        
+        if len(args) != 1:
+            print("Invalid arguments")
+            return
+        
+        mon_name = args[0]
+
         damage = 10
         if not self.here_monster:
-            print("No monster here")
+            print(f"No {mon_name} here")
             return
         
         monster: Monster = None
@@ -234,8 +250,12 @@ class MUDcmd(cmd.Cmd):
 
         for idx, mon in enumerate(self.monsters):
             if mon.pos == self.player:
+                if mon.name != mon_name:
+                    print(f"No {mon_name} here")
+                    return
                 monster = mon
                 monster_id = idx
+                break
 
         died = False
         if monster.hp < damage:
@@ -254,6 +274,24 @@ class MUDcmd(cmd.Cmd):
             print(f"{monster.name} now has {monster.hp}")
 
         return
+    
+    def complete_attack(self, text, line, begidx, endidx):
+        """complete command attack"""
+        monsters_here = []
+        for monster in self.monsters:
+            if monster.pos == self.player:
+                monsters_here.append(monster.name)
+                break
+
+        if not monsters_here:
+            return []
+        
+        args = line[:endidx].split()
+        
+        if len(args) == 1 or len(args) == 2:
+            return [name for name in monsters_here if name.startswith(text)]
+
+        return []
 
     def do_exit(self, arg):
         """Exit the MUD. Usage: exit"""
