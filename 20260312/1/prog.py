@@ -226,25 +226,8 @@ class MUDcmd(cmd.Cmd):
     def do_attack(self, arg):
         """
         Attack monster in your position
-        Usage: attack [with <weapon_name>]
+        Usage: attack <name_monster> [with <weapon_name>]
         """
-        weapons = {
-            "sword": 10,
-            "spear":15,
-            "axe": 20
-        }
-
-        if not self.here_monster:
-            print("No monster here")
-            return
-
-        monster: Monster = None
-        monster_id = 0
-
-        for idx, mon in enumerate(self.monsters):
-            if mon.pos == self.player:
-                monster = mon
-                monster_id = idx
 
         try:
             args = split(arg) if arg else []
@@ -253,12 +236,40 @@ class MUDcmd(cmd.Cmd):
             return
         
         if len(args) == 0:
+            print("Incorrect arguments")
+            return
+        mon_name = args[0]
+
+        weapons = {
+            "sword": 10,
+            "spear":15,
+            "axe": 20
+        }
+
+        if not self.here_monster:
+            print(f"No {mon_name} here")
+            return
+
+        monster: Monster = None
+        monster_id = 0
+
+        for idx, mon in enumerate(self.monsters):
+            if mon.pos == self.player:
+                if mon.name != mon_name:
+                    print(f"No {mon_name} here")
+                    return
+                monster = mon
+                monster_id = idx
+                break
+
+        
+        if len(args) == 1:
             weapon = "sword"
         elif len(args) == 2:
-            if args[0] != "with":
+            if args[1] != "with":
                 print("Invalid arguments")
                 return
-            weapon = args[1]
+            weapon = args[2]
             if weapon not in weapons:
                 print("Unknown weapon")
                 return
@@ -284,18 +295,45 @@ class MUDcmd(cmd.Cmd):
             print(f"{monster.name} now has {monster.hp}")
 
         return
+    
+    def complete_attack(self, text, line, begidx, endidx):
+        """complete command attack"""
+        monsters_here = []
+        for monster in self.monsters:
+            if monster.pos == self.player:
+                monsters_here.append(monster.name)
+                break
+
+        if not monsters_here:
+            return []
+        
+        args = line[:endidx].split()
+        
+        if len(args) == 1 or len(args) == 2:
+            return [name for name in monsters_here if name.startswith(text)]
+
+        return []
 
     def complete_attack(self, text, line, begidx, endidx):
-        """complete for command attack"""
+        """complete command attack"""
         args = line[:endidx].split()
-    
+
+        monsters_here = []
+        for monster in self.monsters:
+            if monster.pos == self.player:
+                monsters_here.append(monster.name)
+                break
+        
         if len(args) == 1:
+            return [name for name in monsters_here if name.startswith(text)]
+
+        if len(args) == 2:
             if "with".startswith(text):
                 return ["with"]
             return []
         
-        elif len(args) >= 2:
-            if args[1] == "with" or (len(args) == 2 and "with".startswith(args[1])):
+        elif len(args) >= 3:
+            if args[2] == "with" or (len(args) == 3 and "with".startswith(args[1])):
                 weapons = ["sword", "spear", "axe"]
                 return [weapon for weapon in weapons if weapon.startswith(text)]
             else:
