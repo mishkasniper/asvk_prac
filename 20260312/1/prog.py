@@ -1,7 +1,7 @@
 from shlex import split
 from cowsay import cowsay, list_cows, read_dot_cow
 from io import StringIO
-
+import cmd
 
 
 class Position:
@@ -51,10 +51,6 @@ class Monster:
         self.phrase = phrase
         self.hp = hp
 
-commands = ["up", "down", "left", "right", "addmon"]
-player = Position(0, 0)
-monsters = []
-
 jgsbat = read_dot_cow(StringIO("""
 $the_cow = <<EOC;
          $thoughts
@@ -71,39 +67,64 @@ $the_cow = <<EOC;
 EOC
 """))
 
-def check_name(name: str) -> bool:
-    if name == "jgsbat" or name in list_cows():
-        return True
-    return False
+class MUDcmd(cmd.Cmd):
+    intro = "<<< Welcome to Python-MUD 0.1 >>>"
+    prompt = "(MUD) "
 
-def move(direction: str) -> None:
-    global player
+    def __init__(self):
+        super().__init__()
+        self.player = Position(0, 0)
+        self.monsters = []
 
-    directions = {
-        "up": (-1, 0),
-        "down": (1, 0),
-        "left": (0, -1),
-        "right": (0, 1)
-    }
-
-    dx, dy = directions[direction]
-    player.move(dx, dy)
-
-    print(f"Moved to ({player[0]}, {player[1]})")
-
-    for monster in monsters:
-        if monster.pos == player:
-            encounter(player[0], player[1])
-    return
+    def check_name(self, name: str) -> bool:
+        if name == "jgsbat" or name in list_cows():
+            return True
+        return False
     
-def encounter(x, y):
-    pos = Position(x, y)
-    for monster in monsters:
-        if monster.pos == pos:
-            if monster.name == "jgsbat":
-                print(cowsay(monster.phrase, cowfile=jgsbat))
-            else:
-                print(cowsay(monster.phrase, cow=monster.name))
+    def encounter(self, x, y):
+        pos = Position(x, y)
+        for monster in self.monsters:
+            if monster.pos == pos:
+                if monster.name == "jgsbat":
+                    print(cowsay(monster.phrase, cowfile=jgsbat))
+                else:
+                    print(cowsay(monster.phrase, cow=monster.name))
+
+    def do_up(self, arg):
+        """Move up. Usage: up"""
+        self.player.move(-1, 0)
+        print(f"Moved to ({self.player[0]}, {self.player[1]})")
+        self.encounter(self.player[0], self.player[1])
+    
+    def do_down(self, arg):
+        """Move down. Usage: down"""
+        self.player.move(1, 0)
+        print(f"Moved to ({self.player[0]}, {self.player[1]})")
+        self.encounter(self.player[0], self.player[1])
+    
+    def do_left(self, arg):
+        """Move left. Usage: left"""
+        self.player.move(0, -1)
+        print(f"Moved to ({self.player[0]}, {self.player[1]})")
+        self.encounter(self.player[0], self.player[1])
+    
+    def do_right(self, arg):
+        """Move right. Usage: right"""
+        self.player.move(0, 1)
+        print(f"Moved to ({self.player[0]}, {self.player[1]})")
+        self.encounter(self.player[0], self.player[1])
+
+    def do_addmon(self, arg: str):
+        """
+        Create a new monster with given parameters.
+        Usage: addmon <monster_name> hello <hello_string> hp <hitpoints> coords <x> <y>
+        """
+        if not arg:
+            print("Invalid arguments")
+            return
+        
+        
+
 
 def get_and_make_command():
     try:
@@ -185,7 +206,7 @@ def get_and_make_command():
         monsters.append(Monster(new_pos, name, phrase, hp))
     else:
         print("Replaced the old monster")
-    
+
 def main():
     print("<<< Welcome to Python-MUD 0.1 >>>")
 
