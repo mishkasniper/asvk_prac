@@ -75,6 +75,7 @@ class MUDcmd(cmd.Cmd):
         super().__init__()
         self.player = Position(0, 0)
         self.monsters = []
+        self.here_monster = False
 
     def check_name(self, name: str) -> bool:
         if name == "jgsbat" or name in list_cows():
@@ -82,9 +83,11 @@ class MUDcmd(cmd.Cmd):
         return False
     
     def encounter(self, x, y):
+        self.here_monster = False
         pos = Position(x, y)
         for monster in self.monsters:
             if monster.pos == pos:
+                self.here_monster = True
                 if monster.name == "jgsbat":
                     print(cowsay(monster.phrase, cowfile=jgsbat))
                 else:
@@ -219,6 +222,38 @@ class MUDcmd(cmd.Cmd):
                 return available
         
         return []
+    
+    def do_attack(self, arg):
+        damage = 10
+        if not self.here_monster:
+            print("No monster here")
+            return
+        
+        monster: Monster = None
+        monster_id = 0
+
+        for idx, mon in enumerate(self.monsters):
+            if mon.pos == self.player:
+                monster = mon
+                monster_id = idx
+
+        died = False
+        if monster.hp < damage:
+            damage = monster.hp
+            died = True
+
+
+        print(f"Attacked {monster.name},  damage {damage} hp")
+        
+        if died:
+            print(f"{monster.name} died")
+            self.monsters.pop(monster_id)
+        
+        else:
+            monster.hp -= damage
+            print(f"{monster.name} now has {monster.hp}")
+
+        return
 
     def do_exit(self, arg):
         """Exit the MUD. Usage: exit"""
