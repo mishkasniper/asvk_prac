@@ -205,7 +205,7 @@ class MUDcmd(cmd.Cmd):
             print("Replaced the old monster")
 
     def complete_addmon(self, text, line, begidx, endidx):
-        """Автодополнение для команды addmon"""
+        """complete for command addmon"""
         args = line[:endidx].split()
         
         if len(args) <= 2:
@@ -224,11 +224,20 @@ class MUDcmd(cmd.Cmd):
         return []
     
     def do_attack(self, arg):
-        damage = 10
+        """
+        Attack monster in your position
+        Usage: attack [with <weapon_name>]
+        """
+        weapons = {
+            "sword": 10,
+            "spear":15,
+            "axe": 20
+        }
+
         if not self.here_monster:
             print("No monster here")
             return
-        
+
         monster: Monster = None
         monster_id = 0
 
@@ -237,11 +246,32 @@ class MUDcmd(cmd.Cmd):
                 monster = mon
                 monster_id = idx
 
+        try:
+            args = split(arg) if arg else []
+        except ValueError:
+            print("Invalid arguments")
+            return
+        
+        if len(args) == 0:
+            weapon = "sword"
+        elif len(args) == 2:
+            if args[0] != "with":
+                print("Invalid arguments")
+                return
+            weapon = args[1]
+            if weapon not in weapons:
+                print("Unknown weapon")
+                return
+        else:
+            print("Invalid arguments")
+            return
+
+        damage = weapons[weapon]
+
         died = False
         if monster.hp < damage:
             damage = monster.hp
             died = True
-
 
         print(f"Attacked {monster.name},  damage {damage} hp")
         
@@ -254,6 +284,24 @@ class MUDcmd(cmd.Cmd):
             print(f"{monster.name} now has {monster.hp}")
 
         return
+
+    def complete_attack(self, text, line, begidx, endidx):
+        """complete for command attack"""
+        args = line[:endidx].split()
+    
+        if len(args) == 1:
+            if "with".startswith(text):
+                return ["with"]
+            return []
+        
+        elif len(args) >= 2:
+            if args[1] == "with" or (len(args) == 2 and "with".startswith(args[1])):
+                weapons = ["sword", "spear", "axe"]
+                return [weapon for weapon in weapons if weapon.startswith(text)]
+            else:
+                return []
+        
+        return []
 
     def do_exit(self, arg):
         """Exit the MUD. Usage: exit"""
