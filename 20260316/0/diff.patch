@@ -1,11 +1,12 @@
 diff --git a/20260316/0/classwork.py b/20260316/0/classwork.py
-index 7952ab3..a063ae5 100644
+index a063ae5..8e6c7a4 100644
 --- a/20260316/0/classwork.py
 +++ b/20260316/0/classwork.py
-@@ -1,2 +1,2 @@
--n = int(input())
--    
+@@ -1,2 +1,4 @@
+ a = int(input())
+-b = int(input())    
 \ No newline at end of file
-+a = int(input())
-+b = int(input())    
++b = int(input())
++c = int(input())
++d = int(input())
 \ No newline at end of file
