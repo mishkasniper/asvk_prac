@@ -1,0 +1,61 @@
+From 61ffb8d74dbec6443aec7f7255e291ee9d1994c7 Mon Sep 17 00:00:00 2001
+From: mishkasniper <mikhail.al.zakharov@gmail.com>
+Date: Fri, 20 Mar 2026 00:55:25 +0300
+Subject: [PATCH 3/4] complete for attack and addmon realization
+
+---
+ 20260316/1/client.py | 37 +++++++++++++++++++++++++++++++++++--
+ 1 file changed, 35 insertions(+), 2 deletions(-)
+
+diff --git a/20260316/1/client.py b/20260316/1/client.py
+index c7af85c..528ab7d 100644
+--- a/20260316/1/client.py
++++ b/20260316/1/client.py
+@@ -188,9 +188,42 @@ class MUDClient(cmd.Cmd):
+             print("Unexpected response")
+ 
+     def complete_attack(self, text, line, begidx, endidx):
+-        if self.current_monster and self.current_monster.startswith(text):
+-            return [self.current_monster]
++        args = line[:endidx].split()
++        arg_index = len(args)
++
++        weapons = ["sword", "spear", "axe"]
++
++        if arg_index == 1:
++            if self.current_monster and self.current_monster.startswith(text):
++                return [self.current_monster]
++            return []
++
++        elif arg_index == 2:
++            if "with".startswith(text):
++                return ["with"]
++            return []
++
++        elif arg_index == 3:
++            if len(args) >= 3 and args[2] == "with":
++                return [w for w in weapons if w.startswith(text)]
++            return []
+         return []
++    
++    def complete_addmon(self, text, line, begidx, endidx):
++        """complete for command addmon"""
++        args = line[:endidx].split()
++        
++        if len(args) == 1:
++            cows = list_cows() + ["jgsbat"]
++            return [cow for cow in cows if cow.startswith(text)]
++        
++        used_keywords = set()
++        for arg in args[1:]:
++            if arg in ("hello", "hp", "coords"):
++                used_keywords.add(arg)
++        all_keywords = ["hello", "hp", "coords"]
++        available = [k for k in all_keywords if k not in used_keywords and k.startswith(text)]
++        return available
+ 
+     def do_exit(self, arg):
+         """Exit the MUD. Usage: exit"""
+-- 
+2.43.0
+

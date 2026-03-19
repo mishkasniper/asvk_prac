@@ -1,0 +1,231 @@
+From c16a399507ed21d15fecb9165725a7ee6aa14b76 Mon Sep 17 00:00:00 2001
+From: mishkasniper <mikhail.al.zakharov@gmail.com>
+Date: Fri, 20 Mar 2026 00:47:00 +0300
+Subject: [PATCH 2/4] client realization
+
+---
+ 20260316/1/client.py | 213 +++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 213 insertions(+)
+
+diff --git a/20260316/1/client.py b/20260316/1/client.py
+index e69de29..c7af85c 100644
+--- a/20260316/1/client.py
++++ b/20260316/1/client.py
+@@ -0,0 +1,213 @@
++import socket
++from shlex import split
++from cowsay import cowsay, list_cows, read_dot_cow
++from io import StringIO
++import cmd
++
++jgsbat = read_dot_cow(StringIO("""
++$the_cow = <<EOC;
++         $thoughts
++          $thoughts
++    ,_                    _,
++    ) '-._  ,_    _,  _.-' (
++    )  _.-'.|\\\\\\\\--//|.'-._  (
++     )'   .'\/o\/o\/'.   `(
++      ) .' . \====/ . '. (
++       )  / <<    >> \  (
++        '-._/``  ``\_.-'
++  jgs     __\\\\\\\\'--'//__
++         (((""`  `"")))
++EOC
++"""))
++
++class MUDClient(cmd.Cmd):
++    intro = "<<< Welcome to Python-MUD 0.1 >>>"
++    prompt = "(MUD) "
++
++    def __init__(self, host='localhost', port=1337):
++        super().__init__()
++        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
++        self.sock.connect((host, port))
++        self.current_monster = None
++
++    def send_command(self, cmd_str):
++        """Send command to server and return response."""
++        self.sock.sendall((cmd_str + '\n').encode())
++        data = self.sock.recv(1024)
++        return data.decode().strip()
++
++    def do_up(self, arg):
++        """Move up. Usage: up"""
++        self._move(-1, 0)
++
++    def do_down(self, arg):
++        """Move down. Usage: down"""
++        self._move(1, 0)
++
++    def do_left(self, arg):
++        """Move left. Usage: left"""
++        self._move(0, -1)
++
++    def do_right(self, arg):
++        """Move right. Usage: right"""
++        self._move(0, 1)
++
++    def _move(self, dx, dy):
++        response = self.send_command(f"move {dx} {dy}")
++        self._handle_move_response(response)
++
++    def _handle_move_response(self, response):
++        parts = response.split()
++        if parts[0] == 'moved':
++            x, y = parts[1], parts[2]
++            print(f"Moved to ({x}, {y})")
++            self.current_monster = None
++        elif parts[0] == 'encounter':
++            x, y, name = parts[1], parts[2], parts[3]
++            phrase = ' '.join(parts[4:])
++            print(f"Moved to ({x}, {y})")
++            self.current_monster = name
++            if name == 'jgsbat':
++                print(cowsay(phrase, cowfile=jgsbat))
++            else:
++                print(cowsay(phrase, cow=name))
++        else:
++            print("Unexpected response:", response)
++
++    def do_addmon(self, arg):
++        """
++        Create a new monster with given parameters.
++        Usage: addmon <monster_name> hello <hello_string> hp <hitpoints> coords <x> <y>
++        """
++        if not arg:
++            print("Invalid arguments")
++            return
++        try:
++            args = split(arg)
++        except ValueError:
++            print("Invalid arguments")
++            return
++        if len(args) != 8:
++            print("Invalid arguments")
++            return
++        name = args[0]
++        if not (name == "jgsbat" or name in list_cows()):
++            print("Cannot add unknown monster")
++            return
++
++        i = 1
++        hello = hp = x = y = None
++        while i < len(args):
++            if args[i] == 'hello':
++                try:
++                    hello = args[i+1]
++                except:
++                    print("Invalid arguments")
++                    return
++                i += 2
++            elif args[i] == 'hp':
++                try:
++                    hp = int(args[i+1])
++                    if hp <= 0: raise ValueError
++                except:
++                    print("Invalid arguments")
++                    return
++                i += 2
++            elif args[i] == 'coords':
++                try:
++                    x = int(args[i+1])
++                    y = int(args[i+2])
++                    if not (0 <= x < 10 and 0 <= y < 10): raise ValueError
++                except:
++                    print("Invalid arguments")
++                    return
++                i += 3
++            else:
++                print("Invalid arguments")
++                return
++        if None in (hello, hp, x, y):
++            print("Invalid arguments")
++            return
++
++        cmd = f"addmon {name} {hello} {hp} {x} {y}"
++        response = self.send_command(cmd)
++        parts = response.split()
++        if parts[0] == 'added':
++            print(f"Added monster {name} to ({x}, {y}) saying {hello}")
++            if len(parts) > 6 and parts[6] == 'replaced':
++                print("Replaced the old monster")
++        elif parts[0] == 'error':
++            print("Error:", ' '.join(parts[1:]))
++        else:
++            print("Unexpected response")
++
++    def do_attack(self, arg):
++        """
++        Attack monster in your position
++        Usage: attack <name_monster> [with <weapon_name>]
++        """
++        try:
++            args = split(arg) if arg else []
++        except ValueError:
++            print("Invalid arguments")
++            return
++        if len(args) == 0:
++            print("Incorrect arguments")
++            return
++        mon_name = args[0]
++
++        weapons = {"sword": 10, "spear": 15, "axe": 20}
++        if len(args) == 1:
++            weapon = "sword"
++        elif len(args) == 3 and args[1] == 'with':
++            if args[2] not in weapons:
++                print("Unknown weapon")
++                return
++            weapon = args[2]
++        else:
++            print("Invalid arguments")
++            return
++        damage = weapons[weapon]
++
++        cmd = f"attack {mon_name} {damage}"
++        response = self.send_command(cmd)
++        parts = response.split()
++        if parts[0] == 'attacked':
++            name = parts[1]
++            dmg = parts[2]
++            hp_left = parts[3]
++            print(f"Attacked {name}, damage {dmg} hp")
++            if hp_left == '0':
++                print(f"{name} died")
++                self.current_monster = None
++            else:
++                print(f"{name} now has {hp_left}")
++        elif parts[0] == 'no':
++            print(f"No {mon_name} here")
++        else:
++            print("Unexpected response")
++
++    def complete_attack(self, text, line, begidx, endidx):
++        if self.current_monster and self.current_monster.startswith(text):
++            return [self.current_monster]
++        return []
++
++    def do_exit(self, arg):
++        """Exit the MUD. Usage: exit"""
++        self.send_command("exit")
++        self.sock.close()
++        print("Goodbye!")
++        return True
++
++    def do_EOF(self, arg):
++        print()
++        return self.do_exit(arg)
++
++    def default(self, line):
++        print("Invalid command")
++
++    def emptyline(self):
++        pass
++
++if __name__ == "__main__":
++    MUDClient().cmdloop()
+\ No newline at end of file
+-- 
+2.43.0
+
