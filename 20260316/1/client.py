@@ -188,9 +188,42 @@ class MUDClient(cmd.Cmd):
             print("Unexpected response")
 
     def complete_attack(self, text, line, begidx, endidx):
-        if self.current_monster and self.current_monster.startswith(text):
-            return [self.current_monster]
+        args = line[:endidx].split()
+        arg_index = len(args)
+
+        weapons = ["sword", "spear", "axe"]
+
+        if arg_index == 1:
+            if self.current_monster and self.current_monster.startswith(text):
+                return [self.current_monster]
+            return []
+
+        elif arg_index == 2:
+            if "with".startswith(text):
+                return ["with"]
+            return []
+
+        elif arg_index == 3:
+            if len(args) >= 3 and args[2] == "with":
+                return [w for w in weapons if w.startswith(text)]
+            return []
         return []
+    
+    def complete_addmon(self, text, line, begidx, endidx):
+        """complete for command addmon"""
+        args = line[:endidx].split()
+        
+        if len(args) == 1:
+            cows = list_cows() + ["jgsbat"]
+            return [cow for cow in cows if cow.startswith(text)]
+        
+        used_keywords = set()
+        for arg in args[1:]:
+            if arg in ("hello", "hp", "coords"):
+                used_keywords.add(arg)
+        all_keywords = ["hello", "hp", "coords"]
+        available = [k for k in all_keywords if k not in used_keywords and k.startswith(text)]
+        return available
 
     def do_exit(self, arg):
         """Exit the MUD. Usage: exit"""
