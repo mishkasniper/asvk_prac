@@ -1,4 +1,8 @@
 import socket
+import threading
+import queue
+from cowsay import cowsay, list_cows, read_dot_cow
+from io import StringIO
 
 class Position:
     def __init__(self, x: int, y: int):
@@ -47,35 +51,87 @@ class Monster:
         self.phrase = phrase
         self.hp = hp
 
+jgsbat = read_dot_cow(StringIO("""
+$the_cow = <<EOC;
+         $thoughts
+          $thoughts
+    ,_                    _,
+    ) '-._  ,_    _,  _.-' (
+    )  _.-'.|\\\\\\\\--//|.'-._  (
+     )'   .'\/o\/o\/'.   `(
+      ) .' . \====/ . '. (
+       )  / <<    >> \  (
+        '-._/``  ``\_.-'
+  jgs     __\\\\\\\\'--'//__
+         (((""`  `"")))
+EOC
+"""))
+
 class GameServer:
     def __init__(self, host='localhost', port=1337):
         self.host = host
         self.port = port
-        self.player = Position(0, 0)
+        self.lock = threading.Lock()
+        self.clients = {}
+        self.positions = {}
         self.monsters = []
+        self.cmd_queue = queue.Queue()
+        self.running = True
 
-    def handle_command(self, cmd_line):
+    def broadcast(self, message, exclude=None):
+        for name, sock in self.clients.items():
+            if name != exclude:
+                try:
+                    sock.sendall((message + '\n').encode())
+                except:
+                    pass
+
+    def send_private(self, name, message):
+        sock = self.clients.get(name)
+        if sock:
+            try:
+                sock.sendall((message + '\n').encode())
+            except:
+                pass
+
+    def handle_command(self, username, cmd_line):
         parts = cmd_line.strip().split()
         if not parts:
-            return "error empty command"
+            return
         cmd = parts[0]
 
-        try:
-            if cmd == 'move':
+        if cmd == 'move':
+            try:
                 dx, dy = int(parts[1]), int(parts[2])
-                self.player.move(dx, dy)
+            except (IndexError, ValueError):
+                return
+            with self.lock:
+                pos = self.positions.get(username)
+                if not pos:
+                    pos = Position(0, 0)
+                pos.move(dx, dy)
+                self.positions[username] = pos
+                self.send_private(username, f"You moved to ({pos.x}, {pos.y})")
                 for m in self.monsters:
-                    if m.pos == self.player:
-                        return f"encounter {self.player.x} {self.player.y} {m.name} {m.phrase}"
-                return f"moved {self.player.x} {self.player.y}"
+                    if m.pos == pos:
+                        if m.name == 'jgsbat':
+                            greeting = cowsay(m.phrase, cowfile=jgsbat)
+                        else:
+                            greeting = cowsay(m.phrase, cow=m.name)
+                        self.send_private(username, greeting)
+                        break
 
-            elif cmd == 'addmon':
+        elif cmd == 'addmon':
+            try:
                 name = parts[1]
                 hello = parts[2]
                 hp = int(parts[3])
                 x = int(parts[4])
                 y = int(parts[5])
-                pos = Position(x, y)
+            except (IndexError, ValueError):
+                return
+            pos = Position(x, y)
+            with self.lock:
                 replaced = False
                 for i, m in enumerate(self.monsters):
                     if m.pos == pos:
@@ -84,47 +140,117 @@ class GameServer:
                         break
                 if not replaced:
                     self.monsters.append(Monster(pos, name, hello, hp))
-                return f"added {name} {x} {y} {hello}" + (" replaced" if replaced else "")
+                msg = f"{username} added monster {name} at ({x},{y}) saying '{hello}'"
+                if replaced:
+                    msg += " (replaced)"
+                self.broadcast(msg)
 
-            elif cmd == 'attack':
-                name = parts[1]
+        elif cmd == 'attack':
+            try:
+                mon_name = parts[1]
                 damage = int(parts[2])
-                for i, m in enumerate(self.monsters):
-                    if m.pos == self.player and m.name == name:
-                        if damage >= m.hp:
-                            self.monsters.pop(i)
-                            return f"attacked {name} {m.hp} 0 died"
-                        else:
-                            m.hp -= damage
-                            return f"attacked {name} {damage} {m.hp}"
-                return f"no {name} here"
+            except (IndexError, ValueError):
+                return
+            with self.lock:
+                pos = self.positions.get(username)
+                if not pos:
+                    return
+                target = None
+                for m in self.monsters:
+                    if m.pos == pos and m.name == mon_name:
+                        target = m
+                        break
+                if target is None:
+                    self.send_private(username, f"No {mon_name} here")
+                    return
+                if damage >= target.hp:
+                    damage = target.hp
+                    died = True
+                    self.monsters.remove(target)
+                else:
+                    died = False
+                    target.hp -= damage
+                msg = f"{username} attacked {mon_name} with {damage} damage"
+                if died:
+                    msg += f" and killed it"
+                else:
+                    msg += f", HP left: {target.hp}"
+                self.broadcast(msg)
 
-            elif cmd == 'exit':
-                return "bye"
-            else:
-                return "error unknown command"
-        except (IndexError, ValueError):
-            return "error malformed command"
+        elif cmd == 'exit':
+            with self.lock:
+                if username in self.clients:
+                    self.broadcast(f"{username} left the game", exclude=username)
+                    del self.clients[username]
+                    if username in self.positions:
+                        del self.positions[username]
+
+    def process_queue(self):
+        while self.running:
+            try:
+                username, cmd = self.cmd_queue.get(timeout=1)
+            except queue.Empty:
+                continue
+            self.handle_command(username, cmd)
+
+    def client_handler(self, sock, addr):
+        try:
+            data = sock.recv(1024).decode().strip()
+            if not data.startswith('login '):
+                sock.sendall(b"error: need login\n")
+                sock.close()
+                return
+            username = data.split(maxsplit=1)[1].strip()
+            with self.lock:
+                if username in self.clients:
+                    sock.sendall(b"login_fail\n")
+                    sock.close()
+                    return
+                self.clients[username] = sock
+                self.positions[username] = Position(0, 0)
+            sock.sendall(b"login_ok\n")
+            self.broadcast(f"{username} joined the game")
+        except:
+            sock.close()
+            return
+
+        while self.running:
+            try:
+                data = sock.recv(1024).decode().strip()
+                if not data:
+                    break
+                self.cmd_queue.put((username, data))
+            except:
+                break
+
+        with self.lock:
+            if username in self.clients:
+                del self.clients[username]
+                if username in self.positions:
+                    del self.positions[username]
+            self.broadcast(f"{username} left the game")
+        sock.close()
 
     def run(self):
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.bind((self.host, self.port))
-        server.listen(1)
+        server.listen(5)
         print(f"Server listening on {self.host}:{self.port}")
-        while True:
-            conn, addr = server.accept()
-            print(f"Connected by {addr}")
-            with conn:
-                while True:
-                    data = conn.recv(1024)
-                    if not data:
-                        break
-                    cmd = data.decode().strip()
-                    response = self.handle_command(cmd)
-                    conn.sendall((response + '\n').encode())
-                    if cmd == 'exit':
-                        break
-            print("Connection closed")
+
+        processor = threading.Thread(target=self.process_queue)
+        processor.start()
+
+        while self.running:
+            try:
+                sock, addr = server.accept()
+                t = threading.Thread(target=self.client_handler, args=(sock, addr))
+                t.start()
+            except:
+                break
+
+        self.running = False
+        server.close()
+        processor.join()
 
 def main():
     GameServer().run()
