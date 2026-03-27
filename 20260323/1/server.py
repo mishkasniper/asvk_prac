@@ -1,0 +1,133 @@
+import socket
+
+class Position:
+    def __init__(self, x: int, y: int):
+        self.x = x
+        self.y = y
+    
+    def __eq__(self, other):
+        if not isinstance(other, Position):
+            return False
+        return self.x == other.x and self.y == other.y
+    
+    def __str__(self):
+        return f"({self.x}, {self.y})"
+    
+    def move(self, dx: int, dy: int) -> None:
+        self.x = (self.x + dx) % 10
+        self.y = (self.y + dy) % 10
+    
+    def copy(self):
+        return Position(self.x, self.y)
+    
+    def __getitem__(self, index):
+        if index == 0:
+            return self.x
+        elif index == 1:
+            return self.y
+        else:
+            raise IndexError("Position index out of range")
+        
+    def __setitem__(self, index, value):
+        if index == 0:
+            self.x = value % 10
+        elif index == 1:
+            self.y = value % 10
+        else:
+            raise IndexError("Position index out of range")
+    
+    def __iter__(self):
+        yield self.x
+        yield self.y
+
+class Monster:
+    def __init__(self, pos: Position, name: str, phrase: str, hp: int):
+        self.pos = pos
+        self.name = name
+        self.phrase = phrase
+        self.hp = hp
+
+class GameServer:
+    def __init__(self, host='localhost', port=1337):
+        self.host = host
+        self.port = port
+        self.player = Position(0, 0)
+        self.monsters = []
+
+    def handle_command(self, cmd_line):
+        parts = cmd_line.strip().split()
+        if not parts:
+            return "error empty command"
+        cmd = parts[0]
+
+        try:
+            if cmd == 'move':
+                dx, dy = int(parts[1]), int(parts[2])
+                self.player.move(dx, dy)
+                for m in self.monsters:
+                    if m.pos == self.player:
+                        return f"encounter {self.player.x} {self.player.y} {m.name} {m.phrase}"
+                return f"moved {self.player.x} {self.player.y}"
+
+            elif cmd == 'addmon':
+                name = parts[1]
+                hello = parts[2]
+                hp = int(parts[3])
+                x = int(parts[4])
+                y = int(parts[5])
+                pos = Position(x, y)
+                replaced = False
+                for i, m in enumerate(self.monsters):
+                    if m.pos == pos:
+                        self.monsters[i] = Monster(pos, name, hello, hp)
+                        replaced = True
+                        break
+                if not replaced:
+                    self.monsters.append(Monster(pos, name, hello, hp))
+                return f"added {name} {x} {y} {hello}" + (" replaced" if replaced else "")
+
+            elif cmd == 'attack':
+                name = parts[1]
+                damage = int(parts[2])
+                for i, m in enumerate(self.monsters):
+                    if m.pos == self.player and m.name == name:
+                        if damage >= m.hp:
+                            self.monsters.pop(i)
+                            return f"attacked {name} {m.hp} 0 died"
+                        else:
+                            m.hp -= damage
+                            return f"attacked {name} {damage} {m.hp}"
+                return f"no {name} here"
+
+            elif cmd == 'exit':
+                return "bye"
+            else:
+                return "error unknown command"
+        except (IndexError, ValueError):
+            return "error malformed command"
+
+    def run(self):
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.bind((self.host, self.port))
+        server.listen(1)
+        print(f"Server listening on {self.host}:{self.port}")
+        while True:
+            conn, addr = server.accept()
+            print(f"Connected by {addr}")
+            with conn:
+                while True:
+                    data = conn.recv(1024)
+                    if not data:
+                        break
+                    cmd = data.decode().strip()
+                    response = self.handle_command(cmd)
+                    conn.sendall((response + '\n').encode())
+                    if cmd == 'exit':
+                        break
+            print("Connection closed")
+
+def main():
+    GameServer().run()
+    
+if __name__ == "__main__":
+    main()
