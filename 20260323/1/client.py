@@ -3,6 +3,9 @@ from shlex import split
 from cowsay import cowsay, list_cows, read_dot_cow
 from io import StringIO
 import cmd
+import threading
+import sys
+import readline
 
 jgsbat = read_dot_cow(StringIO("""
 $the_cow = <<EOC;
@@ -24,55 +27,45 @@ class MUDClient(cmd.Cmd):
     intro = "<<< Welcome to Python-MUD 0.1 >>>"
     prompt = "(MUD) "
 
-    def __init__(self, host='localhost', port=1337):
+    def __init__(self, username, host='localhost', port=1337):
         super().__init__()
+        self.username = username
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((host, port))
-        self.current_monster = None
+        self.sock.sendall(f"login {username}\n".encode())
+        resp = self.sock.recv(1024).decode().strip()
+        if resp != "login_ok":
+            print("Login failed:", resp)
+            sys.exit(1)
+        print("Connected to server.")
+        self.running = True
+        self.receiver = threading.Thread(target=self.receive_messages)
+        self.receiver.start()
+        
 
-    def send_command(self, cmd_str):
-        """Send command to server and return response."""
-        self.sock.sendall((cmd_str + '\n').encode())
-        data = self.sock.recv(1024)
-        return data.decode().strip()
+    def send_command(self, cmd):
+        try:
+            self.sock.sendall((cmd + '\n').encode())
+        except:
+            print("Connection lost.")
+            self.running = False
+            return
 
     def do_up(self, arg):
         """Move up. Usage: up"""
-        self._move(-1, 0)
+        self.send_command(f"move -1 0")
 
     def do_down(self, arg):
         """Move down. Usage: down"""
-        self._move(1, 0)
+        self.send_command(f"move 1 0")
 
     def do_left(self, arg):
         """Move left. Usage: left"""
-        self._move(0, -1)
+        self.send_command(f"move 0 -1")
 
     def do_right(self, arg):
         """Move right. Usage: right"""
-        self._move(0, 1)
-
-    def _move(self, dx, dy):
-        response = self.send_command(f"move {dx} {dy}")
-        self._handle_move_response(response)
-
-    def _handle_move_response(self, response):
-        parts = response.split()
-        if parts[0] == 'moved':
-            x, y = parts[1], parts[2]
-            print(f"Moved to ({x}, {y})")
-            self.current_monster = None
-        elif parts[0] == 'encounter':
-            x, y, name = parts[1], parts[2], parts[3]
-            phrase = ' '.join(parts[4:])
-            print(f"Moved to ({x}, {y})")
-            self.current_monster = name
-            if name == 'jgsbat':
-                print(cowsay(phrase, cowfile=jgsbat))
-            else:
-                print(cowsay(phrase, cow=name))
-        else:
-            print("Unexpected response:", response)
+        self.send_command(f"move 0 1")
 
     def do_addmon(self, arg):
         """
@@ -129,17 +122,7 @@ class MUDClient(cmd.Cmd):
             print("Invalid arguments")
             return
 
-        cmd = f"addmon {name} {hello} {hp} {x} {y}"
-        response = self.send_command(cmd)
-        parts = response.split()
-        if parts[0] == 'added':
-            print(f"Added monster {name} to ({x}, {y}) saying {hello}")
-            if len(parts) > 6 and parts[6] == 'replaced':
-                print("Replaced the old monster")
-        elif parts[0] == 'error':
-            print("Error:", ' '.join(parts[1:]))
-        else:
-            print("Unexpected response")
+        self.send_command(f"addmon {name} {hello} {hp} {x} {y}")
 
     def do_attack(self, arg):
         """
@@ -169,23 +152,7 @@ class MUDClient(cmd.Cmd):
             return
         damage = weapons[weapon]
 
-        cmd = f"attack {mon_name} {damage}"
-        response = self.send_command(cmd)
-        parts = response.split()
-        if parts[0] == 'attacked':
-            name = parts[1]
-            dmg = parts[2]
-            hp_left = parts[3]
-            print(f"Attacked {name}, damage {dmg} hp")
-            if hp_left == '0':
-                print(f"{name} died")
-                self.current_monster = None
-            else:
-                print(f"{name} now has {hp_left}")
-        elif parts[0] == 'no':
-            print(f"No {mon_name} here")
-        else:
-            print("Unexpected response")
+        self.send_command(f"attack {mon_name} {damage}")
 
     def complete_attack(self, text, line, begidx, endidx):
         args = line[:endidx].split()
@@ -194,8 +161,6 @@ class MUDClient(cmd.Cmd):
         weapons = ["sword", "spear", "axe"]
 
         if arg_index == 1:
-            if self.current_monster and self.current_monster.startswith(text):
-                return [self.current_monster]
             return []
 
         elif arg_index == 2:
@@ -228,12 +193,12 @@ class MUDClient(cmd.Cmd):
     def do_exit(self, arg):
         """Exit the MUD. Usage: exit"""
         self.send_command("exit")
+        self.running = False
         self.sock.close()
         print("Goodbye!")
         return True
 
     def do_EOF(self, arg):
-        print()
         return self.do_exit(arg)
 
     def default(self, line):
