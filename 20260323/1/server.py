@@ -140,7 +140,7 @@ class GameServer:
                         break
                 if not replaced:
                     self.monsters.append(Monster(pos, name, hello, hp))
-                msg = f"{username} added monster {name} at ({x},{y}) saying '{hello}'"
+                msg = f"{username} added monster {name} with {hp} HP"
                 if replaced:
                     msg += " (replaced)"
                 self.broadcast(msg)
@@ -177,13 +177,6 @@ class GameServer:
                     msg += f", HP left: {target.hp}"
                 self.broadcast(msg)
 
-        elif cmd == 'exit':
-            with self.lock:
-                if username in self.clients:
-                    self.broadcast(f"{username} left the game", exclude=username)
-                    del self.clients[username]
-                    if username in self.positions:
-                        del self.positions[username]
 
     def process_queue(self):
         while self.running:

@@ -32,6 +32,7 @@ class MUDClient(cmd.Cmd):
         self.username = username
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((host, port))
+        self.sock.settimeout(1.0)
         self.sock.sendall(f"login {username}\n".encode())
         resp = self.sock.recv(1024).decode().strip()
         if resp != "login_ok":
@@ -42,6 +43,19 @@ class MUDClient(cmd.Cmd):
         self.receiver = threading.Thread(target=self.receive_messages)
         self.receiver.start()
         
+    def receive_messages(self):
+        while self.running:
+            try:
+                data = self.sock.recv(4096).decode().strip()
+                if not data:
+                    break
+                print(f"\n{data}")
+                print(f"{self.prompt}{readline.get_line_buffer()}", end='', flush=True)
+            except socket.timeout:
+                continue
+            except:
+                break
+        self.running = False
 
     def send_command(self, cmd):
         try:
@@ -195,6 +209,7 @@ class MUDClient(cmd.Cmd):
         self.send_command("exit")
         self.running = False
         self.sock.close()
+        self.receiver.join(timeout=2)
         print("Goodbye!")
         return True
 
@@ -208,4 +223,7 @@ class MUDClient(cmd.Cmd):
         pass
 
 if __name__ == "__main__":
-    MUDClient().cmdloop()
+    if len(sys.argv) < 2:
+        print("Usage: python client.py <username>")
+        sys.exit(1)
+    MUDClient(sys.argv[1]).cmdloop()
