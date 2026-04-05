@@ -42,7 +42,17 @@ class MUDClient(cmd.Cmd):
         self.running = True
         self.receiver = threading.Thread(target=self.receive_messages)
         self.receiver.start()
-        
+
+    def do_sayall(self, arg):
+        """Send a message to all players. Usage: sayall <message>"""
+        if not arg:
+            print("Usage: sayall <message>")
+            return
+        try:
+            self.send_command(f"sayall {arg}")
+        except Exception:
+            print("Invalid arguments")
+
     def receive_messages(self):
         while self.running:
             try:

@@ -176,6 +176,12 @@ class GameServer:
                 else:
                     msg += f", HP left: {target.hp}"
                 self.broadcast(msg)
+            
+        elif cmd == "sayall":
+            if len(parts) < 2:
+                return
+            message = ' '.join(parts[1:])
+            self.broadcast(f"{username}: {message}")
 
 
     def process_queue(self):
