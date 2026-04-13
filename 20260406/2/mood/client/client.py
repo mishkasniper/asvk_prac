@@ -48,9 +48,8 @@ class MUDClient(cmd.Cmd):
             if not line or line.startswith('#'):
                 continue
             self.send_command(line)
-            time.sleep(1)   # интервал между отправками
+            time.sleep(1)
 
-        # Завершаем сеанс
         self.send_command("exit")
         time.sleep(0.5)
         self.running = False
