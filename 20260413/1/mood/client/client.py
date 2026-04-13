@@ -66,6 +66,17 @@ class MUDClient(cmd.Cmd):
         except Exception:
             print("Invalid arguments")
 
+    def do_movemonsters(self, arg):
+        """Enable/disable wandering monsters. Usage: movemonsters on|off"""
+        if arg not in ('on', 'off'):
+            print("Invalid arguments. Usage: movemonsters on|off")
+            return
+        self.send_command(f"movemonsters {arg}")
+
+    def complete_movemonsters(self, text, line, begidx, endidx):
+        """Complete on/off for movemonsters command."""
+        return [opt for opt in ['on', 'off'] if opt.startswith(text)]
+
     def receive_messages(self):
         while self.running:
             try:

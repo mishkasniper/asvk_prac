@@ -59,6 +59,7 @@ class GameServer:
         self.monsters = []
         self.cmd_queue = queue.Queue()
         self.running = True
+        self.wandering_enabled = True
 
     def broadcast(self, message, exclude=None):
         """
@@ -113,6 +114,8 @@ class GameServer:
         игрокам. Если монстр попадает на клетку с игроком, инициирует встречу.
         """
         with self.lock:
+            if not self.wandering_enabled:
+                return
             if not self.monsters:
                 return
             for _ in range(20):
@@ -229,6 +232,18 @@ class GameServer:
                 return
             message = ' '.join(parts[1:])
             self.broadcast(f"{username}: {message}")
+
+        elif cmd == 'movemonsters':
+            if len(parts) != 2:
+                return
+            if parts[1] == 'on':
+                self.wandering_enabled = True
+                self.send_private(username, "Moving monsters: on")
+            elif parts[1] == 'off':
+                self.wandering_enabled = False
+                self.send_private(username, "Moving monsters: off")
+            else:
+                return
 
 
     def process_queue(self):
