@@ -6,7 +6,7 @@ import cmd
 import threading
 import sys
 import readline
-
+import time
 
 
 class MUDClient(cmd.Cmd):
@@ -28,6 +28,34 @@ class MUDClient(cmd.Cmd):
         self.running = True
         self.receiver = threading.Thread(target=self.receive_messages)
         self.receiver.start()
+
+    def run_script(self, filename):
+        """Execute commands from a script file with 1 second delay between sends."""
+        try:
+            with open(filename, 'r') as f:
+                lines = f.readlines()
+        except FileNotFoundError:
+            print(f"Error: script file '{filename}' not found.")
+            self.sock.close()
+            return
+        except Exception as e:
+            print(f"Error reading script: {e}")
+            self.sock.close()
+            return
+
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            self.send_command(line)
+            time.sleep(1)   # интервал между отправками
+
+        # Завершаем сеанс
+        self.send_command("exit")
+        time.sleep(0.5)
+        self.running = False
+        self.sock.close()
+        print("Script finished.")
 
     def do_sayall(self, arg):
         """Send a message to all players. Usage: sayall <message>"""
