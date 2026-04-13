@@ -237,6 +237,13 @@ class MUDClient(cmd.Cmd):
         all_keywords = ["hello", "hp", "coords"]
         available = [k for k in all_keywords if k not in used_keywords and k.startswith(text)]
         return available
+    
+    def do_locale(self, arg):
+        """Set locale. Usage: locale ru_RU.UTF-8"""
+        if not arg:
+            print("Usage: locale <locale_name>")
+            return
+        self.send_command(f"locale {arg}")
 
     def do_exit(self, arg):
         """Exit the MUD. Usage: exit"""

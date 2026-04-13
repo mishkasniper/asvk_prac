@@ -23,6 +23,7 @@ from cowsay import cowsay
 from ..common.position import Position
 from ..common.monster import Monster
 from ..common.cowsay_utils import jgsbat
+from .translations import Translator
 
 
 
@@ -42,6 +43,9 @@ class GameServer:
         monsters (list): Список объектов Monster, присутствующих в мире.
         cmd_queue (queue.Queue): Очередь команд от клиентов (username, команда).
         running (bool): Флаг работы сервера.
+        wandering_monsters (bool): Флаг подвижности монстров.
+        translator (Translator): Объект для локализации сообщений.
+        client_locales (dict): Словарь {имя_пользователя: локаль}.
     """
     def __init__(self, host='localhost', port=1337):
         """
@@ -60,21 +64,8 @@ class GameServer:
         self.cmd_queue = queue.Queue()
         self.running = True
         self.wandering_enabled = True
-
-    def broadcast(self, message, exclude=None):
-        """
-        Отправляет сообщение всем подключённым клиентам.
-
-        Args:
-            message (str): Текст сообщения.
-            exclude (str, optional): Имя пользователя, которому сообщение не отправляется.
-        """
-        for name, sock in self.clients.items():
-            if name != exclude:
-                try:
-                    sock.sendall((message + '\n').encode())
-                except:
-                    pass
+        self.translator = Translator()
+        self.client_locales = {}
 
     def send_private(self, name, message):
         """
@@ -90,6 +81,30 @@ class GameServer:
                 sock.sendall((message + '\n').encode())
             except:
                 pass
+
+    def broadcast(self, message, exclude=None):
+        """Отправить сообщение всем клиентам (без локализации)."""
+        for name, sock in self.clients.items():
+            if name != exclude:
+                try:
+                    sock.sendall((message + '\n').encode())
+                except:
+                    pass
+
+    def _send_private_localized(self, name, msgid, msgid_plural=None, n=None, **kwargs):
+        """Отправляет локализованное сообщение конкретному клиенту."""
+        locale = self.client_locales.get(name)
+        text = self.translator.localize(locale, msgid, msgid_plural, n, **kwargs)
+        self.send_private(name, text)
+
+    def _broadcast_localized(self, msgid, msgid_plural=None, n=None, exclude=None, **kwargs):
+        """Отправляет локализованное сообщение всем клиентам, кроме exclude."""
+        for name in list(self.clients.keys()):
+            if name == exclude:
+                continue
+            locale = self.client_locales.get(name)
+            text = self.translator.localize(locale, msgid, msgid_plural, n, **kwargs)
+            self.send_private(name, text)
     
     def _send_encounter(self, monster, player_name):
         """
@@ -121,14 +136,21 @@ class GameServer:
             for _ in range(20):
                 monster = random.choice(self.monsters)
                 directions = [(-1, 0, 'up'), (1, 0, 'down'), (0, -1, 'left'), (0, 1, 'right')]
-                dx, dy, dir_name = random.choice(directions)
+                dx, dy, direction = random.choice(directions)
                 new_x = (monster.pos.x + dx) % 10
                 new_y = (monster.pos.y + dy) % 10
                 occupied = any(m.pos.x == new_x and m.pos.y == new_y for m in self.monsters)
                 if not occupied:
                     monster.pos.x = new_x
                     monster.pos.y = new_y
-                    self.broadcast(f"{monster.name} moved one cell {dir_name}")
+                    if direction == 'up':
+                        self._broadcast_localized("{monster} moved one cell up", monster=monster.name)
+                    elif direction == 'down':
+                        self._broadcast_localized("{monster} moved one cell down", monster=monster.name)
+                    elif direction == 'left':
+                        self._broadcast_localized("{monster} moved one cell left", monster=monster.name)
+                    elif direction == 'right':
+                        self._broadcast_localized("{monster} moved one cell right", monster=monster.name)
                     players_here = [name for name, pos in self.positions.items() if pos.x == new_x and pos.y == new_y]
                     for player in players_here:
                         self._send_encounter(monster, player)
@@ -144,6 +166,7 @@ class GameServer:
             attack name damage   - атака монстра
             sayall message       - широковещательное сообщение
             movemonsters on/off  - включение/выключение бродячих монстров
+            locale loc           - установка локали для клиента
 
         Args:
             username (str): Имя пользователя.
@@ -165,7 +188,7 @@ class GameServer:
                     pos = Position(0, 0)
                 pos.move(dx, dy)
                 self.positions[username] = pos
-                self.send_private(username, f"You moved to ({pos.x}, {pos.y})")
+                self._send_private_localized(username, "You moved to ({x}, {y})", x=pos.x, y=pos.y)
                 for m in self.monsters:
                     if m.pos == pos:
                         self._send_encounter(m, username)
@@ -190,10 +213,16 @@ class GameServer:
                         break
                 if not replaced:
                     self.monsters.append(Monster(pos, name, hello, hp))
-                msg = f"{username} added monster {name} with {hp} HP"
+                self._broadcast_localized(
+                    "{username} added monster {name} with {hp} HP",
+                    msgid_plural="{username} added monster {name} with {hp} HP",
+                    n=hp,
+                    username=username,
+                    name=name,
+                    hp=hp
+                )
                 if replaced:
-                    msg += " (replaced)"
-                self.broadcast(msg)
+                    self._broadcast_localized("(replaced)")
 
         elif cmd == 'attack':
             try:
@@ -211,7 +240,7 @@ class GameServer:
                         target = m
                         break
                 if target is None:
-                    self.send_private(username, f"No {mon_name} here")
+                    self._send_private_localized(username, "No {name} here", name=mon_name)
                     return
                 if damage >= target.hp:
                     damage = target.hp
@@ -220,12 +249,23 @@ class GameServer:
                 else:
                     died = False
                     target.hp -= damage
-                msg = f"{username} attacked {mon_name} with {damage} damage"
+                self._broadcast_localized(
+                    "{username} attacked {mon_name} with {damage} damage",
+                    msgid_plural="{username} attacked {mon_name} with {damage} damage",
+                    n=damage,
+                    username=username,
+                    mon_name=mon_name,
+                    damage=damage
+                )
                 if died:
-                    msg += f" and killed it"
+                    self._broadcast_localized("and killed it")
                 else:
-                    msg += f", HP left: {target.hp}"
-                self.broadcast(msg)
+                    self._broadcast_localized(
+                        "HP left: {hp}",
+                        msgid_plural="HP left: {hp}",
+                        n=target.hp,
+                        hp=target.hp
+                    )
             
         elif cmd == "sayall":
             if len(parts) < 2:
@@ -238,12 +278,19 @@ class GameServer:
                 return
             if parts[1] == 'on':
                 self.wandering_enabled = True
-                self.send_private(username, "Moving monsters: on")
+                self._send_private_localized(username, "Moving monsters: on")
             elif parts[1] == 'off':
                 self.wandering_enabled = False
-                self.send_private(username, "Moving monsters: off")
+                self._send_private_localized(username, "Moving monsters: off")
             else:
                 return
+
+        elif cmd == 'locale':
+            if len(parts) != 2:
+                return
+            new_locale = parts[1]
+            self.client_locales[username] = new_locale
+            self._send_private_localized(username, "Set up locale: {loc_name}", loc_name=new_locale)
 
 
     def process_queue(self):
@@ -286,7 +333,7 @@ class GameServer:
                 self.clients[username] = sock
                 self.positions[username] = Position(0, 0)
             sock.sendall(b"login_ok\n")
-            self.broadcast(f"{username} joined the game")
+            self._broadcast_localized("{username} joined the game", username=username)
         except:
             sock.close()
             return
@@ -305,7 +352,7 @@ class GameServer:
                 del self.clients[username]
                 if username in self.positions:
                     del self.positions[username]
-            self.broadcast(f"{username} left the game")
+            self._broadcast_localized("{username} left the game", username=username)
         sock.close()
 
     def run(self):
