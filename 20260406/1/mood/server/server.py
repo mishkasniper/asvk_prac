@@ -1,11 +1,19 @@
+"""Server module for MOOD MUD.
+
+Handles client connections, game state, wandering monsters.
+"""
+
 import socket
 import threading
 import queue
+import time
+import random
 from cowsay import cowsay
 
 from common.position import Position
 from common.monster import Monster
 from common.cowsay_utils import jgsbat
+
 
 
 
@@ -37,6 +45,35 @@ class GameServer:
                 sock.sendall((message + '\n').encode())
             except:
                 pass
+    
+    def _send_encounter(self, monster, player_name):
+        if monster.name == 'jgsbat':
+            greeting = cowsay(monster.phrase, cowfile=jgsbat)
+        else:
+            greeting = cowsay(monster.phrase, cow=monster.name)
+        self.send_private(player_name, greeting)
+
+    def _move_random_monster(self):
+        if not self.wandering_enabled:
+            return
+        with self.lock:
+            if not self.monsters:
+                return
+            for _ in range(20):
+                monster = random.choice(self.monsters)
+                directions = [(-1, 0, 'up'), (1, 0, 'down'), (0, -1, 'left'), (0, 1, 'right')]
+                dx, dy, dir_name = random.choice(directions)
+                new_x = (monster.pos.x + dx) % 10
+                new_y = (monster.pos.y + dy) % 10
+                occupied = any(m.pos.x == new_x and m.pos.y == new_y for m in self.monsters)
+                if not occupied:
+                    monster.pos.x = new_x
+                    monster.pos.y = new_y
+                    self.broadcast(f"{monster.name} moved one cell {dir_name}")
+                    players_here = [name for name, pos in self.positions.items() if pos.x == new_x and pos.y == new_y]
+                    for player in players_here:
+                        self._send_encounter(monster, player)
+                    return
 
     def handle_command(self, username, cmd_line):
         parts = cmd_line.strip().split()
@@ -58,11 +95,7 @@ class GameServer:
                 self.send_private(username, f"You moved to ({pos.x}, {pos.y})")
                 for m in self.monsters:
                     if m.pos == pos:
-                        if m.name == 'jgsbat':
-                            greeting = cowsay(m.phrase, cowfile=jgsbat)
-                        else:
-                            greeting = cowsay(m.phrase, cow=m.name)
-                        self.send_private(username, greeting)
+                        self._send_encounter(m, username)
                         break
 
         elif cmd == 'addmon':
@@ -183,6 +216,14 @@ class GameServer:
         processor = threading.Thread(target=self.process_queue)
         processor.start()
 
+        def wander_loop():
+            while self.running:
+                time.sleep(30)
+                self._move_random_monster()
+        
+        wander_thread = threading.Thread(target=wander_loop)
+        wander_thread.start()
+
         while self.running:
             try:
                 sock, addr = server.accept()
@@ -193,5 +234,6 @@ class GameServer:
 
         self.running = False
         server.close()
+        wander_thread.join()
         processor.join()
 
