@@ -10,9 +10,9 @@ import time
 import random
 from cowsay import cowsay
 
-from common.position import Position
-from common.monster import Monster
-from common.cowsay_utils import jgsbat
+from ..common.position import Position
+from ..common.monster import Monster
+from ..common.cowsay_utils import jgsbat
 
 
 
@@ -54,8 +54,6 @@ class GameServer:
         self.send_private(player_name, greeting)
 
     def _move_random_monster(self):
-        if not self.wandering_enabled:
-            return
         with self.lock:
             if not self.monsters:
                 return

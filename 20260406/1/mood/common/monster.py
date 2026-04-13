@@ -1,4 +1,4 @@
-from common.position import Position
+from .position import Position
 class Monster:
     def __init__(self, pos: Position, name: str, phrase: str, hp: int):
         self.pos = pos
