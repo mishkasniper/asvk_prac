@@ -1,6 +1,16 @@
-"""Server module for MOOD MUD.
+"""
+Серверный модуль MOOD MUD.
 
-Handles client connections, game state, wandering monsters.
+Реализует многопользовательский сервер для игры MUD (Multi-User Dungeon)
+с поддержкой бродячих монстров, перемещающихся каждые 30 секунд.
+
+Обрабатывает подключения клиентов, управляет состоянием игры (позиции игроков,
+монстры), обеспечивает широковещательные сообщения о событиях (добавление
+монстра, атака, перемещение монстра) и индивидуальные уведомления (встреча
+с монстром).
+
+Классы:
+    GameServer: основной класс сервера, управляющий сокетами, потоками и логикой.
 """
 
 import socket
@@ -20,7 +30,27 @@ from ..common.cowsay_utils import jgsbat
 
 
 class GameServer:
+    """
+    Сервер MUD, обрабатывающий подключения и игровую логику.
+
+    Атрибуты:
+        host (str): Адрес для прослушивания (по умолчанию 'localhost').
+        port (int): Порт для прослушивания (по умолчанию 1337).
+        lock (threading.Lock): Блокировка для синхронизации доступа к общим данным.
+        clients (dict): Словарь {имя_пользователя: сокет}.
+        positions (dict): Словарь {имя_пользователя: Position} текущих позиций игроков.
+        monsters (list): Список объектов Monster, присутствующих в мире.
+        cmd_queue (queue.Queue): Очередь команд от клиентов (username, команда).
+        running (bool): Флаг работы сервера.
+    """
     def __init__(self, host='localhost', port=1337):
+        """
+        Инициализирует сервер.
+
+        Args:
+            host (str): Адрес для прослушивания.
+            port (int): Порт для прослушивания.
+        """
         self.host = host
         self.port = port
         self.lock = threading.Lock()
@@ -31,6 +61,13 @@ class GameServer:
         self.running = True
 
     def broadcast(self, message, exclude=None):
+        """
+        Отправляет сообщение всем подключённым клиентам.
+
+        Args:
+            message (str): Текст сообщения.
+            exclude (str, optional): Имя пользователя, которому сообщение не отправляется.
+        """
         for name, sock in self.clients.items():
             if name != exclude:
                 try:
@@ -39,6 +76,13 @@ class GameServer:
                     pass
 
     def send_private(self, name, message):
+        """
+        Отправляет личное сообщение конкретному пользователю.
+
+        Args:
+            name (str): Имя получателя.
+            message (str): Текст сообщения.
+        """
         sock = self.clients.get(name)
         if sock:
             try:
@@ -47,6 +91,13 @@ class GameServer:
                 pass
     
     def _send_encounter(self, monster, player_name):
+        """
+        Отправляет игроку приветствие монстра (cowsay) при встрече.
+
+        Args:
+            monster (Monster): Объект монстра.
+            player_name (str): Имя игрока.
+        """
         if monster.name == 'jgsbat':
             greeting = cowsay(monster.phrase, cowfile=jgsbat)
         else:
@@ -54,6 +105,13 @@ class GameServer:
         self.send_private(player_name, greeting)
 
     def _move_random_monster(self):
+        """
+        Перемещает случайного монстра на одну клетку в случайном направлении.
+
+        Избегает столкновения с другими монстрами (повторяет выбор до успеха,
+        максимум 20 попыток). При успешном перемещении рассылает уведомление всем
+        игрокам. Если монстр попадает на клетку с игроком, инициирует встречу.
+        """
         with self.lock:
             if not self.monsters:
                 return
@@ -74,6 +132,20 @@ class GameServer:
                     return
 
     def handle_command(self, username, cmd_line):
+        """
+        Обрабатывает команду, полученную от клиента.
+
+        Поддерживаемые команды:
+            move dx dy           - перемещение игрока
+            addmon name hello hp x y - добавление монстра
+            attack name damage   - атака монстра
+            sayall message       - широковещательное сообщение
+            movemonsters on/off  - включение/выключение бродячих монстров
+
+        Args:
+            username (str): Имя пользователя.
+            cmd_line (str): Строка команды.
+        """
         parts = cmd_line.strip().split()
         if not parts:
             return
@@ -160,6 +232,12 @@ class GameServer:
 
 
     def process_queue(self):
+        """
+        Поток-обработчик очереди команд.
+
+        Извлекает команды из очереди и передаёт их в handle_command.
+        Работает в бесконечном цикле до остановки сервера.
+        """
         while self.running:
             try:
                 username, cmd = self.cmd_queue.get(timeout=1)
@@ -168,6 +246,16 @@ class GameServer:
             self.handle_command(username, cmd)
 
     def client_handler(self, sock, addr):
+        """
+        Обработчик подключения одного клиента (выполняется в отдельном потоке).
+
+        Выполняет аутентификацию (логин), затем принимает команды и помещает их
+        в очередь. При разрыве соединения удаляет пользователя и оповещает всех.
+
+        Args:
+            sock (socket.socket): Сокет клиента.
+            addr (tuple): Адрес клиента.
+        """
         try:
             data = sock.recv(1024).decode().strip()
             if not data.startswith('login '):
@@ -206,6 +294,12 @@ class GameServer:
         sock.close()
 
     def run(self):
+        """
+        Запускает основной цикл сервера.
+
+        Создаёт сокет, принимает подключения, запускает поток обработки очереди
+        и поток перемещения монстров. Останавливается при установке self.running = False.
+        """
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.bind((self.host, self.port))
         server.listen(5)
