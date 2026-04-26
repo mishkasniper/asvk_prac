@@ -7,15 +7,21 @@ import threading
 import sys
 import readline
 import time
+from unittest.mock import MagicMock
 
 
 class MUDClient(cmd.Cmd):
     intro = "<<< Welcome to Python-MUD 0.1 >>>"
     prompt = "(MUD) "
 
-    def __init__(self, username, host='localhost', port=1337):
+    def __init__(self, username, host='localhost', port=1337, testing=False):
         super().__init__()
         self.username = username
+        if testing:
+            self.sock = None
+            self.running = False
+            self.send_command = MagicMock()
+            return
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((host, port))
         self.sock.settimeout(1.0)
