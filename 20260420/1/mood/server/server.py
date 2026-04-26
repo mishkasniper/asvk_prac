@@ -197,10 +197,11 @@ class GameServer:
         elif cmd == 'addmon':
             try:
                 name = parts[1]
-                hello = parts[2]
-                hp = int(parts[3])
-                x = int(parts[4])
-                y = int(parts[5])
+                hello = parts[2:-3]
+                hello = ' '.join(hello)
+                hp = int(parts[-3])
+                x = int(parts[-2])
+                y = int(parts[-1])
             except (IndexError, ValueError):
                 return
             pos = Position(x, y)
