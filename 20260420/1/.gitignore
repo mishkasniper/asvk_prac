@@ -9,4 +9,5 @@ docs/html/
 
 __pycache__/
 *.pyc
+
 *.po

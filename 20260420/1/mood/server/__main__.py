@@ -1,7 +1,7 @@
-from .server import GameServer
+from .server import run_server
 
 def main():
-    GameServer().run()
+    run_server()
     
 if __name__ == "__main__":
     main()

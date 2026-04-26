@@ -391,3 +391,7 @@ class GameServer:
         wander_thread.join()
         processor.join()
 
+def run_server(host='localhost', port=1337):
+    """Запуск сервера (для использования в тестах и основном модуле)."""
+    server = GameServer(host=host, port=port)
+    server.run()
