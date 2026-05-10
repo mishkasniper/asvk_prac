@@ -1,0 +1,74 @@
+
+msgid ""
+msgstr ""
+"Project-Id-Version: MOOD MUD\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-05-03 23:51+0300\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ru_RU\n"
+"Language-Team: ru_RU <LL@li.org>\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
+"n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#~ msgid "Moving monsters: on"
+#~ msgstr "Бродячие монстры: вкл"
+
+#~ msgid "Moving monsters: off"
+#~ msgstr "Бродячие монстры: выкл"
+
+#~ msgid "Set up locale: {loc_name}"
+#~ msgstr "Установлена локаль: {loc_name}"
+
+#~ msgid "{username} joined the game"
+#~ msgstr "{username} присоединился к игре"
+
+#~ msgid "{username} left the game"
+#~ msgstr "{username} покинул игру"
+
+#~ msgid "{username} added monster {name} with {hp} HP"
+#~ msgid_plural "{username} added monster {name} with {hp} HP"
+#~ msgstr[0] "{username} добавил монстра {name} с {hp} очком здоровья"
+#~ msgstr[1] "{username} добавил монстра {name} с {hp} очками здоровья"
+#~ msgstr[2] "{username} добавил монстра {name} с {hp} очками здоровья"
+
+#~ msgid "{username} attacked {mon_name} with {damage} damage"
+#~ msgid_plural "{username} attacked {mon_name} with {damage} damage"
+#~ msgstr[0] "{username} атаковал {mon_name} на {damage} очко здоровья"
+#~ msgstr[1] "{username} атаковал {mon_name} на {damage} очка здоровья"
+#~ msgstr[2] "{username} атаковал {mon_name} на {damage} очков здоровья"
+
+#~ msgid "and killed it"
+#~ msgstr "и убил его"
+
+#~ msgid "HP left: {hp}"
+#~ msgid_plural "HP left: {hp}"
+#~ msgstr[0] "Осталось {hp} очко здоровья"
+#~ msgstr[1] "Осталось {hp} очка здоровья"
+#~ msgstr[2] "Осталось {hp} очков здоровья"
+
+#~ msgid "No {name} here"
+#~ msgstr "Здесь нет {name}"
+
+#~ msgid "{monster} moved one cell up"
+#~ msgstr "{monster} переместился на одну клетку вверх"
+
+#~ msgid "{monster} moved one cell down"
+#~ msgstr "{monster} переместился на одну клетку вниз"
+
+#~ msgid "{monster} moved one cell left"
+#~ msgstr "{monster} переместился на одну клетку влево"
+
+#~ msgid "{monster} moved one cell right"
+#~ msgstr "{monster} переместился на одну клетку вправо"
+
+#~ msgid "You moved to ({x}, {y})"
+#~ msgstr "Вы переместились в ({x}, {y})"
+
+#~ msgid "(replaced)"
+#~ msgstr "(заменён)"
+
