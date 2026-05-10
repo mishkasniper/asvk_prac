@@ -8,6 +8,7 @@ sphinx = "*"
 python-cowsay = "*"
 babel = "*"
 doit = "*"
+build = "*"
 
 [dev-packages]
 pytest = "*"

@@ -88,3 +88,34 @@ def task_test():
         'clean': [clean_pytest_cache],
         'verbosity': 2,
     }
+
+def task_copy_docs():
+    src = 'docs/_build/html'
+    dst = 'mood/html_docs'
+    return {
+        'actions': [
+            (lambda: shutil.copytree(src, dst, ignore_dangling_symlinks=True, dirs_exist_ok=True))
+        ],
+        'file_dep': ['docs/_build/html/index.html'],
+        'targets': [os.path.join(dst, 'index.html')],
+        'task_dep': ['html'],
+        'clean': [lambda: shutil.rmtree(dst, ignore_errors=True)],
+    }
+
+def task_sdist():
+    return {
+        'actions': ['python -m build --sdist'],
+        'task_dep': ['copy_docs'],
+        'targets': ['dist/*.tar.gz'],
+        'clean': [lambda: shutil.rmtree('dist', ignore_errors=True),
+                  lambda: shutil.rmtree('build', ignore_errors=True)],
+    }
+
+def task_wheel():
+    return {
+        'actions': ['python -m build --wheel'],
+        'task_dep': ['copy_docs'],
+        'targets': ['dist/*.whl'],
+        'clean': [lambda: shutil.rmtree('dist', ignore_errors=True),
+                  lambda: shutil.rmtree('build', ignore_errors=True)],
+    }

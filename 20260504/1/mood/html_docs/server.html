@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Server Module &#8212; MOOD MUD  documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Документация MOOD MUD" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-mood.server.server">
+<span id="server-module"></span><h1>Server Module<a class="headerlink" href="#module-mood.server.server" title="Link to this heading">¶</a></h1>
+<p>Серверный модуль MOOD MUD.</p>
+<p>Реализует многопользовательский сервер для игры MUD (Multi-User Dungeon)
+с поддержкой бродячих монстров, перемещающихся каждые 30 секунд.</p>
+<p>Обрабатывает подключения клиентов, управляет состоянием игры (позиции игроков,
+монстры), обеспечивает широковещательные сообщения о событиях (добавление
+монстра, атака, перемещение монстра) и индивидуальные уведомления (встреча
+с монстром).</p>
+<dl class="simple">
+<dt>Классы:</dt><dd><p>GameServer: основной класс сервера, управляющий сокетами, потоками и логикой.</p>
+</dd>
+</dl>
+<dl class="py class">
+<dt class="sig sig-object py" id="mood.server.server.GameServer">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">mood.server.server.</span></span><span class="sig-name descname"><span class="pre">GameServer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">host</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'localhost'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">port</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1337</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mood/server/server.html#GameServer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mood.server.server.GameServer" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Сервер MUD, обрабатывающий подключения и игровую логику.</p>
+<dl class="simple">
+<dt>Атрибуты:</dt><dd><p>host (str): Адрес для прослушивания (по умолчанию ‘localhost’).
+port (int): Порт для прослушивания (по умолчанию 1337).
+lock (threading.Lock): Блокировка для синхронизации доступа к общим данным.
+clients (dict): Словарь {имя_пользователя: сокет}.
+positions (dict): Словарь {имя_пользователя: Position} текущих позиций игроков.
+monsters (list): Список объектов Monster, присутствующих в мире.
+cmd_queue (queue.Queue): Очередь команд от клиентов (username, команда).
+running (bool): Флаг работы сервера.
+wandering_monsters (bool): Флаг подвижности монстров.
+translator (Translator): Объект для локализации сообщений.
+client_locales (dict): Словарь {имя_пользователя: локаль}.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="mood.server.server.GameServer.broadcast">
+<span class="sig-name descname"><span class="pre">broadcast</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exclude</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mood/server/server.html#GameServer.broadcast"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mood.server.server.GameServer.broadcast" title="Link to this definition">¶</a></dt>
+<dd><p>Отправить сообщение всем клиентам (без локализации).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mood.server.server.GameServer.client_handler">
+<span class="sig-name descname"><span class="pre">client_handler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sock</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">addr</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mood/server/server.html#GameServer.client_handler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mood.server.server.GameServer.client_handler" title="Link to this definition">¶</a></dt>
+<dd><p>Обработчик подключения одного клиента (выполняется в отдельном потоке).</p>
+<p>Выполняет аутентификацию (логин), затем принимает команды и помещает их
+в очередь. При разрыве соединения удаляет пользователя и оповещает всех.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sock</strong> (<em>socket.socket</em>) – Сокет клиента.</p></li>
+<li><p><strong>addr</strong> (<em>tuple</em>) – Адрес клиента.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mood.server.server.GameServer.handle_command">
+<span class="sig-name descname"><span class="pre">handle_command</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">username</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmd_line</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mood/server/server.html#GameServer.handle_command"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mood.server.server.GameServer.handle_command" title="Link to this definition">¶</a></dt>
+<dd><p>Обрабатывает команду, полученную от клиента.</p>
+<dl class="simple">
+<dt>Поддерживаемые команды:</dt><dd><p>move dx dy           - перемещение игрока
+addmon name hello hp x y - добавление монстра
+attack name damage   - атака монстра
+sayall message       - широковещательное сообщение
+movemonsters on/off  - включение/выключение бродячих монстров
+locale loc           - установка локали для клиента</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>username</strong> (<em>str</em>) – Имя пользователя.</p></li>
+<li><p><strong>cmd_line</strong> (<em>str</em>) – Строка команды.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mood.server.server.GameServer.process_queue">
+<span class="sig-name descname"><span class="pre">process_queue</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/mood/server/server.html#GameServer.process_queue"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mood.server.server.GameServer.process_queue" title="Link to this definition">¶</a></dt>
+<dd><p>Поток-обработчик очереди команд.</p>
+<p>Извлекает команды из очереди и передаёт их в handle_command.
+Работает в бесконечном цикле до остановки сервера.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mood.server.server.GameServer.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/mood/server/server.html#GameServer.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mood.server.server.GameServer.run" title="Link to this definition">¶</a></dt>
+<dd><p>Запускает основной цикл сервера.</p>
+<p>Создаёт сокет, принимает подключения, запускает поток обработки очереди
+и поток перемещения монстров. Останавливается при установке self.running = False.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mood.server.server.GameServer.send_private">
+<span class="sig-name descname"><span class="pre">send_private</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mood/server/server.html#GameServer.send_private"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mood.server.server.GameServer.send_private" title="Link to this definition">¶</a></dt>
+<dd><p>Отправляет личное сообщение конкретному пользователю.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<em>str</em>) – Имя получателя.</p></li>
+<li><p><strong>message</strong> (<em>str</em>) – Текст сообщения.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mood.server.server.run_server">
+<span class="sig-prename descclassname"><span class="pre">mood.server.server.</span></span><span class="sig-name descname"><span class="pre">run_server</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">host</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'localhost'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">port</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1337</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mood/server/server.html#run_server"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mood.server.server.run_server" title="Link to this definition">¶</a></dt>
+<dd><p>Запуск сервера (для использования в тестах и основном модуле).</p>
+</dd></dl>
+
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">MOOD MUD</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Техническая документация:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Server Module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#mood.server.server.GameServer"><code class="docutils literal notranslate"><span class="pre">GameServer</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#mood.server.server.run_server"><code class="docutils literal notranslate"><span class="pre">run_server()</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Документация MOOD MUD</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, zakharov mikhail.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/server.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
