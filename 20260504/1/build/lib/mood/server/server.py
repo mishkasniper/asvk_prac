@@ -26,10 +26,6 @@ from ..common.cowsay_utils import jgsbat
 from .translations import Translator
 
 
-
-
-
-
 class GameServer:
     """
     Сервер MUD, обрабатывающий подключения и игровую логику.
@@ -47,6 +43,7 @@ class GameServer:
         translator (Translator): Объект для локализации сообщений.
         client_locales (dict): Словарь {имя_пользователя: локаль}.
     """
+
     def __init__(self, host='localhost', port=1337):
         """
         Инициализирует сервер.
@@ -79,7 +76,7 @@ class GameServer:
         if sock:
             try:
                 sock.sendall((message + '\n').encode())
-            except:
+            except Exception:
                 pass
 
     def broadcast(self, message, exclude=None):
@@ -88,14 +85,14 @@ class GameServer:
             if name != exclude:
                 try:
                     sock.sendall((message + '\n').encode())
-                except:
+                except Exception:
                     pass
 
-    def _send_private_localized(self, name, msgid, msgid_plural=None, n=None, **kwargs):
+    def _send_private_localized(self, receiver, msgid, msgid_plural=None, n=None, **kwargs):
         """Отправляет локализованное сообщение конкретному клиенту."""
-        locale = self.client_locales.get(name)
+        locale = self.client_locales.get(receiver)
         text = self.translator.localize(locale, msgid, msgid_plural, n, **kwargs)
-        self.send_private(name, text)
+        self.send_private(receiver, text)
 
     def _broadcast_localized(self, msgid, msgid_plural=None, n=None, exclude=None, **kwargs):
         """Отправляет локализованное сообщение всем клиентам, кроме exclude."""
@@ -105,7 +102,7 @@ class GameServer:
             locale = self.client_locales.get(name)
             text = self.translator.localize(locale, msgid, msgid_plural, n, **kwargs)
             self.send_private(name, text)
-    
+
     def _send_encounter(self, monster, player_name):
         """
         Отправляет игроку приветствие монстра (cowsay) при встрече.
@@ -267,7 +264,7 @@ class GameServer:
                         n=target.hp,
                         hp=target.hp
                     )
-            
+
         elif cmd == "sayall":
             if len(parts) < 2:
                 return
@@ -292,7 +289,6 @@ class GameServer:
             new_locale = parts[1]
             self.client_locales[username] = new_locale
             self._send_private_localized(username, "Set up locale: {loc_name}", loc_name=new_locale)
-
 
     def process_queue(self):
         """
@@ -335,7 +331,7 @@ class GameServer:
                 self.positions[username] = Position(0, 0)
             sock.sendall(b"login_ok\n")
             self._broadcast_localized("{username} joined the game", username=username)
-        except:
+        except Exception:
             sock.close()
             return
 
@@ -345,7 +341,7 @@ class GameServer:
                 if not data:
                     break
                 self.cmd_queue.put((username, data))
-            except:
+            except Exception:
                 break
 
         with self.lock:
@@ -375,7 +371,7 @@ class GameServer:
             while self.running:
                 time.sleep(30)
                 self._move_random_monster()
-        
+
         wander_thread = threading.Thread(target=wander_loop)
         wander_thread.start()
 
@@ -384,13 +380,14 @@ class GameServer:
                 sock, addr = server.accept()
                 t = threading.Thread(target=self.client_handler, args=(sock, addr))
                 t.start()
-            except:
+            except Exception:
                 break
 
         self.running = False
         server.close()
         wander_thread.join()
         processor.join()
+
 
 def run_server(host='localhost', port=1337):
     """Запуск сервера (для использования в тестах и основном модуле)."""

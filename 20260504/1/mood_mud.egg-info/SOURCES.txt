@@ -39,6 +39,7 @@ mood/server/server.py
 mood/server/translations.py
 mood/server/locale/ru_RU/LC_MESSAGES/messages.mo
 mood/tests/__init__.py
+mood/tests/test_client.py
 mood/tests/test_server.py
 mood_mud.egg-info/PKG-INFO
 mood_mud.egg-info/SOURCES.txt

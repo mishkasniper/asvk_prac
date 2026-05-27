@@ -1,3 +1,4 @@
+"""MUD client with cmd interface and asynchronous message receiving."""
 import socket
 from shlex import split
 from cowsay import list_cows
@@ -9,15 +10,24 @@ import readline
 import time
 import webbrowser
 from pathlib import Path
+from unittest.mock import MagicMock
 
 
 class MUDClient(cmd.Cmd):
+    """Command-line client for MOOD MUD."""
+
     intro = "<<< Welcome to Python-MUD 0.1 >>>"
     prompt = "(MUD) "
 
-    def __init__(self, username, host='localhost', port=1337):
+    def __init__(self, username, host='localhost', port=1337, testing=False):
+        """Connect to server, login, start message receiver thread."""
         super().__init__()
         self.username = username
+        if testing:
+            self.sock = None
+            self.running = False
+            self.send_command = MagicMock()
+            return
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((host, port))
         self.sock.settimeout(1.0)
@@ -59,7 +69,7 @@ class MUDClient(cmd.Cmd):
         print("Script finished.")
 
     def do_sayall(self, arg):
-        """Send a message to all players. Usage: sayall <message>"""
+        """Send a message to all players. Usage: sayall <message>."""
         if not arg:
             print("Usage: sayall <message>")
             return
@@ -69,9 +79,9 @@ class MUDClient(cmd.Cmd):
             print("Invalid arguments")
 
     def do_movemonsters(self, arg):
-        """Enable/disable wandering monsters. Usage: movemonsters on|off"""
+        """Enable/disable wandering monsters. Usage: movemonsters on|off."""
         if arg not in ('on', 'off'):
-            print("Invalid arguments. Usage: movemonsters on|off")
+            print("Invalid arguments. Usage: movemonsters on|off.")
             return
         self.send_command(f"movemonsters {arg}")
 
@@ -80,6 +90,7 @@ class MUDClient(cmd.Cmd):
         return [opt for opt in ['on', 'off'] if opt.startswith(text)]
 
     def receive_messages(self):
+        """Background thread reading server messages and displaying them."""
         while self.running:
             try:
                 data = self.sock.recv(4096).decode().strip()
@@ -89,37 +100,39 @@ class MUDClient(cmd.Cmd):
                 print(f"{self.prompt}{readline.get_line_buffer()}", end='', flush=True)
             except socket.timeout:
                 continue
-            except:
+            except Exception:
                 break
         self.running = False
 
     def send_command(self, cmd):
+        """Send a command string to the server."""
         try:
             self.sock.sendall((cmd + '\n').encode())
-        except:
+        except Exception:
             print("Connection lost.")
             self.running = False
             return
 
     def do_up(self, arg):
-        """Move up. Usage: up"""
-        self.send_command(f"move -1 0")
+        """Move up. Usage: up."""
+        self.send_command("move -1 0")
 
     def do_down(self, arg):
-        """Move down. Usage: down"""
-        self.send_command(f"move 1 0")
+        """Move down. Usage: down."""
+        self.send_command("move 1 0")
 
     def do_left(self, arg):
-        """Move left. Usage: left"""
-        self.send_command(f"move 0 -1")
+        """Move left. Usage: left."""
+        self.send_command("move 0 -1")
 
     def do_right(self, arg):
-        """Move right. Usage: right"""
-        self.send_command(f"move 0 1")
+        """Move right. Usage: right."""
+        self.send_command("move 0 1")
 
     def do_addmon(self, arg):
         """
         Create a new monster with given parameters.
+
         Usage: addmon <monster_name> hello <hello_string> hp <hitpoints> coords <x> <y>
         """
         if not arg:
@@ -144,15 +157,16 @@ class MUDClient(cmd.Cmd):
             if args[i] == 'hello':
                 try:
                     hello = args[i+1]
-                except:
+                except Exception:
                     print("Invalid arguments")
                     return
                 i += 2
             elif args[i] == 'hp':
                 try:
                     hp = int(args[i+1])
-                    if hp <= 0: raise ValueError
-                except:
+                    if hp <= 0:
+                        raise ValueError
+                except Exception:
                     print("Invalid arguments")
                     return
                 i += 2
@@ -160,8 +174,9 @@ class MUDClient(cmd.Cmd):
                 try:
                     x = int(args[i+1])
                     y = int(args[i+2])
-                    if not (0 <= x < 10 and 0 <= y < 10): raise ValueError
-                except:
+                    if not (0 <= x < 10 and 0 <= y < 10):
+                        raise ValueError
+                except Exception:
                     print("Invalid arguments")
                     return
                 i += 3
@@ -176,7 +191,8 @@ class MUDClient(cmd.Cmd):
 
     def do_attack(self, arg):
         """
-        Attack monster in your position
+        Attack monster in your position.
+
         Usage: attack <name_monster> [with <weapon_name>]
         """
         try:
@@ -205,6 +221,7 @@ class MUDClient(cmd.Cmd):
         self.send_command(f"attack {mon_name} {damage}")
 
     def complete_attack(self, text, line, begidx, endidx):
+        """Complete weapon names after 'with'."""
         args = line[:endidx].split()
         arg_index = len(args)
 
@@ -223,15 +240,15 @@ class MUDClient(cmd.Cmd):
                 return [w for w in weapons if w.startswith(text)]
             return []
         return []
-    
+
     def complete_addmon(self, text, line, begidx, endidx):
-        """complete for command addmon"""
+        """Complete for command addmon."""
         args = line[:endidx].split()
-        
+
         if len(args) == 1:
             cows = list_cows() + ["jgsbat"]
             return [cow for cow in cows if cow.startswith(text)]
-        
+
         used_keywords = set()
         for arg in args[1:]:
             if arg in ("hello", "hp", "coords"):
@@ -239,16 +256,16 @@ class MUDClient(cmd.Cmd):
         all_keywords = ["hello", "hp", "coords"]
         available = [k for k in all_keywords if k not in used_keywords and k.startswith(text)]
         return available
-    
+
     def do_locale(self, arg):
-        """Set locale. Usage: locale ru_RU.UTF-8"""
+        """Set locale. Usage: locale ru_RU.UTF-8."""
         if not arg:
             print("Usage: locale <locale_name>")
             return
         self.send_command(f"locale {arg}")
 
     def do_exit(self, arg):
-        """Exit the MUD. Usage: exit"""
+        """Exit the MUD. Usage: exit."""
         self.send_command("exit")
         self.running = False
         self.sock.close()
@@ -257,12 +274,15 @@ class MUDClient(cmd.Cmd):
         return True
 
     def do_EOF(self, arg):
+        """Handle Ctrl-D."""
         return self.do_exit(arg)
 
     def default(self, line):
+        """Handle unknown commands."""
         print("Invalid command")
 
     def emptyline(self):
+        """Do nothing on empty line."""
         pass
 
     def do_documentation(self, arg):

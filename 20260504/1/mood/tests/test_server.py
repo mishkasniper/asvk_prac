@@ -7,6 +7,7 @@ import pytest
 HOST = 'localhost'
 PORT = 1337
 
+
 def is_port_open(host, port, timeout=2.0):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.settimeout(timeout)
@@ -16,6 +17,7 @@ def is_port_open(host, port, timeout=2.0):
         return True
     except (socket.timeout, ConnectionRefusedError):
         return False
+
 
 @pytest.fixture(scope="module")
 def server_process():
@@ -35,6 +37,7 @@ def server_process():
     proc.terminate()
     proc.wait()
 
+
 def connect_client():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.settimeout(3.0)
@@ -52,8 +55,10 @@ def connect_client():
         raise Exception(f"Login failed: {resp}")
     return sock, username
 
+
 def send_only(sock, cmd):
     sock.sendall((cmd + '\n').encode())
+
 
 def read_responses(sock, timeout=0.3):
     sock.settimeout(timeout)
@@ -67,6 +72,7 @@ def read_responses(sock, timeout=0.3):
             break
     sock.settimeout(None)
     return responses
+
 
 def test_addmon_and_move_and_attack(server_process):
     sock, username = connect_client()
